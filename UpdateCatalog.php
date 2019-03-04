@@ -9,6 +9,7 @@ $inicioProceso = date("Y-m-d H:i:s");
 
 // Obtenemos las sucursales
 $sucursales = getSucursales();
+echo "\nInicializando el proceso: ".$inicioProceso;
 
 // Variable que almacenará el resultado de la ejecución.
 ob_start();
