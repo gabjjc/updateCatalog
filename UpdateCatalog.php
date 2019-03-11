@@ -7,16 +7,17 @@
 $host = "http://200.16.208.67:81";
 $inicioProceso = date("Y-m-d H:i:s");
 
+// Variable que almacenará el resultado de la ejecución.
+ // ob_start();
+
 // Obtenemos las sucursales
 $sucursales = getSucursales();
 echo "\nInicializando el proceso: ".$inicioProceso;
 
-// Variable que almacenará el resultado de la ejecución.
-ob_start();
 
 // obtenemos los articulos por sucursales
 foreach ($sucursales as $sucursal) {
-
+    clearstatcache();
     $listaArticulosxSucursalRosmi = array();
     $codigosAactualizar = array();
     
@@ -44,23 +45,24 @@ foreach ($sucursales as $sucursal) {
         $countCodigosAdd = 0;
         foreach ($listaArticulosxSucursalTango['Resultado'] as $articuloTango) {
               
-            validarExistenciaCodigoRosmi($articuloTango, $codigosActualizadosRosmi, $codigosAactualizar);
+            validarExistenciaCodigoRosmi($articuloTango, $codigosActualizadosRosmi, $codigosAactualizar, $countCodigosAdd);
             
             //Validamos si el Articulo Tango existe en Rosmi
             $key = array_search($articuloTango['Codigo'], array_column($listaArticulosxSucursalRosmi, 'codigo'));
             
             if(!$key){
                 // No existe ->  // Insertar
-                $countUpdateArt ++;
+                $countInsertArt ++;
                 insertarArticulo($articuloTango, $idSucursal);
             }else{
                 // Existe Articulo, se valida si tiene mismos datos en Rosmi
                 if( ValidarArticuloRosmiTango( $articuloTango ,$listaArticulosxSucursalRosmi, $key ) ){
                     // No cambia nada -> guardar en una variable
                     $countWithOutAction ++;
+                    echo " -> articulo sin cambios". $articuloTango['Codigo'];
                 }else{
                     //Modificaciones en el articulo -> actualizar el articulo
-                    $countInsertArt ++;
+                    $countUpdateArt ++;
                     actualizarArticulo($articuloTango, $idSucursal);
                 }
             }
@@ -73,15 +75,15 @@ foreach ($sucursales as $sucursal) {
         
         echo  "\n\n\tSucursal: " . $idSucursal . " Se agregaron " . $countCodigosAdd . " Codigos nuevos ";
         echo  "\n\n\tSucursal: " . $idSucursal . " Se agregaron " . $countInsertArt . " Articulos  y se actualizaron " . $countUpdateArt . " Codigos. \n";
-        echo  "\n\n\tSucursal: " . $idSucursal . " Articulos sin modificaciones " . count($countWithOutAction); 
+        echo  "\n\n\tSucursal: " . $idSucursal . " Articulos sin modificaciones " . $countWithOutAction; 
     }
 }
 
 $finProceso = date("Y-m-d H:i:s");
 echo  "\n Inicio Proceso: " . $inicioProceso;
 echo  "\n Fin Proceso: " . $finProceso;
-$logs = ob_get_contents();
-ob_end_clean();
+//$logs = ob_get_contents();
+// ob_end_clean();
 
 return $logs;
 
@@ -165,14 +167,15 @@ function getCodigosActualizados()
         echo "\n Errno: " . $mysqli->errno . "\n";
         throw new Exception($mysqli->errno);
     }
-    if ($resultado->num_rows === 0) {
-        throw new Exception("\n Lo sentimos. No se pudo encontrar una coincidencia. Int谷ntelo de nuevo");
-    }
-    
+
+
     $detalle = array();
-    while ($codigo = $resultado->fetch_assoc()) {
-        array_push($detalle, $codigo['codigo']);
-    }
+     if ($resultado->num_rows > 0) {
+        while ($codigo = $resultado->fetch_assoc()) {
+            array_push($detalle, $codigo['codigo']);
+        }
+     }
+    
     
     $mysqli->close();
     
@@ -192,45 +195,51 @@ function getArticulosxSucursalTango($sucursal, $host)
     } else {
         echo  "0";
     }
-    echo  ")Articulos en la sucursal segun TANGO " . $sucursal . " segun TANGO ";
+    echo  ")Articulos en la sucursal " . $sucursal . " segun TANGO ";
     
     
-    if( $stockAndPrice['Status'] == "OK" ){
+    if( $stockAndPrice['Status'] === "OK" ){
         return $stockAndPrice;
     }
     return false;
 }
 
-function validarExistenciaCodigoRosmi($articuloTango, $codigosActualizadosRosmi, $codigosAactualizar){
+function validarExistenciaCodigoRosmi($articuloTango, $codigosActualizadosRosmi, $codigosAactualizar, $countCodigosAdd){
 
     $codArticuloTango = $articuloTango['Codigo'];
     // validamos si el articulo existe en la tabla codigos_actualizados, si no existen se cargan.
-    if (! in_array($codArticuloTango, $codigosActualizadosRosmi)) {
+    if ( empty($codigosActualizadosRosmi) && 
+            ! in_array($codArticuloTango, $codigosActualizadosRosmi)) {
         $datos = array(
             'Codigo' => $codArticuloTango,
             'Descripcion' => $articuloTango['Descripcion']
         );
         array_push($codigosAactualizar, $datos);
-    }
+        $countCodigosAdd++;
+     }
 
 }
 
 function ValidarArticuloRosmiTango($articuloRosmi, $articulosTango, $posicionTango){
 
-   $resultado = true; 
+   $resultado = false; 
     //Valido si los datos recibidos son iguales a los que existen en el modulo
     
-   $precio = $articuloRosmi['Precio'];
-   $stock = $articuloRosmi['Stock'];
-        
+   $artTango = $articulosTango[$posicionTango];
+
+   $precioRosmi = floatval($articuloRosmi['Precio']);
+   $stockRosmi = floatval($articuloRosmi['Stock']);
     
-   $artRosmi = $articulosTango[$posicionTango];
+   $precioTango = floatval($artTango['precio']);
+   $stockTango = floatval($artTango['stock']); 
+   
+   echo "\n[Rosmi-Tango] Precio: [". $precioRosmi . "-" . $precioTango. "] Stock: [" . $stockRosmi ."-". $stockTango ."]";
    
    
-   if($precio == $artRosmi['precio'] &&
-       $stock == $artRosmi['stock']){
-       
-           $resultado = false;
+   if($precioRosmi === $precioTango &&
+       $stockRosmi === $stockTango){
+            echo "[Iguales]";
+           $resultado = true;
    }
    
    return $resultado;
@@ -259,12 +268,12 @@ function insertarArticulo($articulo, $sucursal)
          '" . $articulo['Precio'] . "',
          '" . $articulo['Stock'] . "')";
     
-    //echo "\n\tInsertando SQL[".$sql."]";
+    echo "\n\tInsertando SQL[".$sql."]";
     
     if ($mysqli->query($sql) != TRUE) {
         echo "\n [insertarArticulo] Error al insertar articulo: " . $sql . "Error " . $mysqli->error;
     } else {
-        echo "\n\t Almacenado " . $sucursal . " Codigo " . $codigo;
+        echo "\n\tAlmacenado:" . $sucursal . " Codigo:" . $codigo;
     }
     
     $mysqli->close();
@@ -291,14 +300,15 @@ function actualizarArticulo($articulo, $sucursal)
             marca = '" . $marca . "',
             precio = '" . $articulo['Precio'] . "',
             stock = '" . $articulo['Stock'] . "'
-            WHERE codigo = '" . $articulo['Codigo'] . "'";
+            WHERE codigo = '" . $articulo['Codigo'] . "'
+            AND id_sucursal = ". $sucursal;
     
-    // echo "\n\tActualizando SQL[".$sql."]";
+     echo "\n\tActualizando SQL[".$sql."]";
     
     if ($mysqli->query($sql) != TRUE) {
         echo "\n[actualizarArticulo] Error al actualizar Articulo: " . $sql . "<br>" . $mysqli->error;
     } else {
-        echo "\n\tActualizado " . $sucursal . " Codigo " . $codigo;
+        echo " -> Actualizado:" . $sucursal . " Codigo:" . $codigo;
     }
     $mysqli->close();
 }
