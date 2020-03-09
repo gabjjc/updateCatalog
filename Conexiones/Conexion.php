@@ -1,8 +1,8 @@
 <?php
 $hostname = "localhost";//servidor
-$database = "rosmi_auditorias-seg-hig";//base de datos
-$username = "rosmi_admin";//usuario
-$password = "manolo11";//contrase�a
+$database = "";//base de datos
+$username = "";//usuario
+$password = "";//contrase�a
 //conectar con el servidor de base de datos
 $cnn = mysql_connect($hostname, $username, $password) or trigger_error(mysql_error(),E_USER_ERROR); 
 //seleccionar la base de datos a trabajar
