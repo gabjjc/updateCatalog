@@ -4,7 +4,7 @@
  * Servicio que se ejecuta una vez al dia para actualizar precios y stock.
  * La ejecucion se realiza desde una tarea cron en cpanel.
  */
-$host = "http://200.16.208.67:81";
+$host = "";
 $inicioProceso = date("Y-m-d H:i:s");
 
 // Variable que almacenará el resultado de la ejecución.
@@ -100,10 +100,10 @@ echo "\n\nFin Proceso: " . $finProceso;
 // return $logs;
 function getConnection()
 {
-    $hostname = "200.80.43.110";
-    $database = "rosmi_compras";
-    $username = "rosmi_admin";
-    $password = "manolo11";
+    $hostname = "";
+    $database = "";
+    $username = "";
+    $password = "";
 
     $mysqli = new mysqli($hostname, $username, $password, $database);
 
